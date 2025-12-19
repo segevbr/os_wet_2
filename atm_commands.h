@@ -22,15 +22,21 @@ int invest(const string& args);
 
 // actual functions
 int func_open_account(int acc, int pswd, int ils, int usd);
-int func_deposit(int acc, int pswd, int amount, int curr);
-int func_withdraw(int acc, int pswd, int amount, int curr);
+int func_deposit(int acc, int pswd, int amount, string curr);
+int func_withdraw(int acc, int pswd, int amount, string curr);
 int func_balance(int acc, int pswd);
 int func_close_account(int acc, int pswd);
-int func_transfer(int s_acc, int pswd, int t_acc, int amount, int curr);
+int func_transfer(int s_acc, int pswd, int t_acc, int amount, string curr);
 int func_close_atm(int t_atm_id);
 int func_rollback(int it);
-int func_exchange(int acc, int pswd, int s_curr, int t_curr, int s_amount);
-int func_invest(int acc, int pswd, int amount, int curr, int time);
+int func_exchange(int acc, int pswd, string s_curr, string t_curr, int s_amount);
+int func_invest(int acc, int pswd, int amount, string curr, int time);
+
+// Helpers
+enum Currencies {
+    ILS = 0,
+    USD = 1
+};
 
 
 #endif

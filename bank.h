@@ -2,7 +2,10 @@
 #define BANK_H
 
 #include <stack>
+#include <vector>
 #include "account.h"
+
+using namespace std;
 
 typedef struct Status {
     vector<Account*> accounts_list;

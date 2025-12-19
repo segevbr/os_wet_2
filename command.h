@@ -21,6 +21,6 @@ typedef struct Command {
     bool is_persistent;
     int vip_priority;
     string cmd_string;
-};
+} Command;
 
 #endif

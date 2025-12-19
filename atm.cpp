@@ -16,7 +16,7 @@ void* run_atm(void* arg){
     if (!atm->input_file.is_open()) return NULL;
 
     string line;
-    Command failed_cmd;
+    
     while (atm->is_running) {
         usleep(100*1000); // sleep 0.1s
         
@@ -27,7 +27,7 @@ void* run_atm(void* arg){
             break;
         }
         cmd = atm->parse_command(line);
-        bool success = atm->run_command(cmd);
+        atm->run_command(cmd);
         
         sleep(1);
     }
@@ -82,6 +82,9 @@ Command ATM::parse_command(const string& line){
 
 bool ATM::run_command(const Command& cmd){
     int status;
+
+    // cout << "Running command..." << endl;
+    // cout << "Persitent: " << cmd.is_persistent << "\tVIP: " << cmd.vip_priority << endl;
     switch (cmd.type)
     {
     case (CMD_OPEN): status = open_account(cmd.cmd_string); break;    

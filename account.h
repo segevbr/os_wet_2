@@ -4,6 +4,8 @@
 #include <pthread.h>
 #include <string>
 
+using namespace std;
+
 class Account {
     private:
         int id;

@@ -18,7 +18,7 @@ class ATM {
         bool is_running;
         
         ATM(int id, string& file_path, Bank* bank) : atm_id(id),
-        input_file_path(file_path), bank_ptr(bank){};
+        input_file_path(file_path), bank_ptr(bank), is_running(true){};
 
         
         Command parse_command(const string& line);

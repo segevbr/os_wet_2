@@ -11,9 +11,13 @@ enum CommandType {
     CMD_TRANSFER, CMD_CLOSE_ATM, CMD_ROLLBACK, CMD_EXCHANGE, CMD_INVEST
 };
 
+enum CommandStatus {
+    COMMAND_SUCCESSFULL = 0,
+    COMMAND_FAILED = 1
+};
+
 typedef struct Command {
     CommandType type;
-    vector<string> args;
     bool is_persistent;
     int vip_priority;
     string cmd_string;

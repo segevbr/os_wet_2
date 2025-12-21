@@ -24,6 +24,9 @@ private:
   ReadWriteLock bank_lock;
   stack<Status *> status_stack[120];
 
+  //vector<Command> vip_queue;
+  pthread_mutex_t vip_lock;
+
 public:
   Bank();
 };

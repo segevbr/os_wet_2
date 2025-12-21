@@ -19,6 +19,7 @@ int close_atm(const string& args);
 int rollback(const string& args);
 int exchange(const string& args);
 int invest(const string& args);
+int sleep_func(const string& args);
 
 // actual functions
 int func_open_account(int acc, int pswd, int ils, int usd);

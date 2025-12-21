@@ -12,7 +12,7 @@
 
 using namespace std;
 
-ofstream log_file;
+ofstream log_file; //todo change log file to singelton
 
 // Provide definitions so the linker can find them.
 // (Temporary no-op implementations for single-ATM bring-up.)

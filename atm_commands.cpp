@@ -169,6 +169,10 @@ int invest(const string& args) {
     return func_invest(account, password, amount, currency, time);
 }
 
+int sleep_func(const string& args){
+    return COMMAND_SUCCESSFULL;
+}
+
 // actual functions
 int func_open_account(int acc, int pswd, int ils, int usd) {
     return COMMAND_SUCCESSFULL; // for checks

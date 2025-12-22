@@ -13,6 +13,7 @@
 using namespace std;
 
 ofstream log_file; //todo change log file to singelton
+Bank* bank_ptr = nullptr;
 
 // Provide definitions so the linker can find them.
 // (Temporary no-op implementations for single-ATM bring-up.)
@@ -51,16 +52,16 @@ int main(int argc, char* argv[]){
     log_file.open("log.txt", ios::out);
     // is there a need to check if was opend successfully
 
-    Bank* bank = new Bank();
+    bank_ptr = new Bank();
 
     // Create a single ATM using the first input file (single-ATM implementation)
-    ATM* atm = new ATM(1, atm_input_files[0], bank);
+    ATM* atm = new ATM(1, atm_input_files[0], bank_ptr);
 
     pthread_t bank_t; // bank thread
-    if (pthread_create(&bank_t, NULL, bank_func, (void*)bank) != 0){
+    if (pthread_create(&bank_t, NULL, bank_func, (void*)bank_ptr) != 0){
         cerr << "Bank error: pthread_create failed" << endl;
-        delete atm;
-        delete bank;
+        delete(atm);
+        delete(bank_ptr);
         return ERROR;
     }
     
@@ -69,19 +70,19 @@ int main(int argc, char* argv[]){
     if (pthread_create(&atm_th, NULL, run_atm, (void*)atm) != 0){
         cerr << "Bank error: pthread_create failed" << endl;
         pthread_join(bank_t, NULL);
-        delete atm;
-        delete bank;
+        delete(atm);
+        delete(bank_ptr);
         return ERROR;
     }
-
+    
     // VIP thread creation
     pthread_t vip_th;
-    if (pthread_create(&vip_th, NULL, vip_thread_func, (void*)bank) != 0){
+    if (pthread_create(&vip_th, NULL, vip_thread_func, (void*)bank_ptr) != 0){
         cerr << "Bank error: pthread_create failed" << endl;
         pthread_join(atm_th, NULL);
         pthread_join(bank_t, NULL);
         delete atm;
-        delete bank;
+        delete bank_ptr;
         return ERROR;
     }
 
@@ -90,7 +91,7 @@ int main(int argc, char* argv[]){
 
     pthread_join(vip_th, NULL);
     pthread_join(bank_t, NULL);
-    delete(bank);
+    delete(bank_ptr);
     log_file.close();
 
     return SUCCESS;

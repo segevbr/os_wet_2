@@ -24,6 +24,7 @@ class ATM {
         Command parse_command(const string& line);
         bool run_command(const Command& cmd);
         
+        // Helpers 
         int get_id();
     };
     

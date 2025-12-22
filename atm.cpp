@@ -115,37 +115,37 @@ bool ATM::run_command(const Command &cmd) {
   // << endl;
   switch (cmd.type) {
   case (CMD_OPEN):
-    status = open_account(cmd.cmd_string);
+    status = open_account(this, cmd.cmd_string);
     break;
   case (CMD_DEPOSIT):
-    status = deposit(cmd.cmd_string);
+    status = deposit(this, cmd.cmd_string);
     break;
   case (CMD_WITHDRAW):
-    status = withdraw(cmd.cmd_string);
+    status = withdraw(this, cmd.cmd_string);
     break;
   case (CMD_BALANCE):
-    status = balance(cmd.cmd_string);
+    status = balance(this, cmd.cmd_string);
     break;
   case (CMD_CLOSE):
-    status = close_account(cmd.cmd_string);
+    status = close_account(this, cmd.cmd_string);
     break;
   case (CMD_TRANSFER):
-    status = transfer(cmd.cmd_string);
+    status = transfer(this, cmd.cmd_string);
     break;
   case (CMD_CLOSE_ATM):
-    status = close_atm(cmd.cmd_string);
+    status = close_atm(this,cmd.cmd_string);
     break;
   case (CMD_ROLLBACK):
-    status = rollback(cmd.cmd_string);
+    status = rollback(this, cmd.cmd_string);
     break;
   case (CMD_EXCHANGE):
-    status = exchange(cmd.cmd_string);
+    status = exchange(this, cmd.cmd_string);
     break;
   case (CMD_INVEST):
-    status = invest(cmd.cmd_string);
+    status = invest(this, cmd.cmd_string);
     break;
   case (CMD_SLEEP):
-    status = sleep_func(cmd.cmd_string);
+    status = sleep_func(this, cmd.cmd_string);
     break;
   default:
     status = COMMAND_FAILED;
@@ -153,3 +153,6 @@ bool ATM::run_command(const Command &cmd) {
 
   return status;
 }
+
+// Helpers
+int ATM::get_id() { return atm_id; }

@@ -10,16 +10,22 @@ using namespace std;
 class Account {
 private:
   int id;
-  string password;
+  int password;
   int ils_blc;
   int usd_blc;
   bool is_vip;
 
 public:
   ReadWriteLock lock;
-  Account(int id, string pass, int ils_b, int usd_b, bool is_vip)
-      : id(id), password(pass), ils_blc(ils_b), usd_blc(usd_b),
-        is_vip(is_vip) {};
+  Account(int id, int pass, int ils_b, int usd_b)
+      : id(id), password(pass), ils_blc(ils_b), usd_blc(usd_b){};
+  int get_id() const { return id; }
+  int get_password() const { return password; }
+  int get_ils_balance() const { return ils_blc; }
+  int get_usd_balance() const { return usd_blc; }
+
+  void set_ils_balance(int new_ils);
+  void set_usd_balance(int new_usd);
 };
 
 #endif

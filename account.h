@@ -23,6 +23,7 @@ public:
   int get_password() const { return password; }
   int get_ils_balance() const { return ils_blc; }
   int get_usd_balance() const { return usd_blc; }
+  // bool get_is_vip() const { return is_vip; }
 
   void set_ils_balance(int new_ils);
   void set_usd_balance(int new_usd);

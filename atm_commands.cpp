@@ -413,11 +413,17 @@ int func_transfer(ATM* atm, int s_acc, int pswd, int t_acc, int amount, string c
 }
 int func_close_atm(ATM* atm, int t_atm_id) {
     // flag to bank to close t_atm_id ATM
-    // Todo: implement with Lior
+    // bank should write to log about atm closure
+    atm->bank_ptr->close_atm(t_atm_id);
+
     return COMMAND_SUCCESSFULL; // for checks
 }
 int func_rollback(ATM* atm, int it) {
-    // Todo: implement with Lior
+    atm->bank_ptr->rollback_bank(it);
+    string msg = to_string(atm->get_id()) + ": Rollback to " + to_string(it) +
+    " bank iterations ago was completed successfully\n";
+    // write msg to log
+    cout << msg << endl;
     return COMMAND_SUCCESSFULL; // for checks
 }
 int func_exchange(ATM* atm, int acc, int pswd, string s_curr, string t_curr, int s_amount) {

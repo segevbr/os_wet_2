@@ -10,8 +10,9 @@ extern void write_to_log(const string &msg);
 
 void *run_atm(void *arg) { // todo why void*
   ATM *atm = (ATM *)arg;
-  if (!atm)
-    return NULL;
+  if (!atm) return NULL;
+  
+  atm->bank_ptr->add_atm(atm); // atm asks bank to register it
 
   atm->input_file.open(atm->input_file_path);
   if (!atm->input_file.is_open())

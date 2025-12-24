@@ -27,6 +27,7 @@ void *run_atm(void *arg) { // todo why void*
       break;
     }
     cmd = atm->parse_command(line);
+    
     if (cmd.vip_priority > 0) {
       // todo add vip command in bank list
       continue;

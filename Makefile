@@ -2,7 +2,7 @@ CXX = g++
 
 CXXFLAGS = -std=c++11 -g -Wall -Werror -pedantic-errors -DNDEBUG -pthread
 
-SRCS = account.cpp atm.cpp atm_commands.cpp bank.cpp bank_exc.cpp reader_writer.cpp
+SRCS = account.cpp atm.cpp bank.cpp bank_exc.cpp reader_writer.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 

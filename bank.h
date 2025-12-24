@@ -18,7 +18,7 @@ class ATM; // forward declaration
 
 typedef struct AccountData {
   int id;
-  int password;
+  string password;
   int ils_blc;
   int usd_blc;
 } AccountData;

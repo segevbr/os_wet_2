@@ -16,9 +16,10 @@ class ATM{
         ifstream input_file;
         Bank* bank_ptr;        
         bool is_running;
+        int num_atms;
         
-        ATM(int id, string& file_path, Bank* bank) : atm_id(id),
-        input_file_path(file_path), bank_ptr(bank), is_running(true){};
+        ATM(int id, string& file_path, Bank* bank, int num_atms) : atm_id(id),
+        input_file_path(file_path), bank_ptr(bank), is_running(true), num_atms(num_atms){};
 
         
         Command parse_command(const string& line);

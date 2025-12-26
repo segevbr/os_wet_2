@@ -24,41 +24,47 @@ typedef struct AccountData {
 } AccountData;
 
 typedef struct Status {
-  map<int, AccountData*> accounts_data;
+  map<int, AccountData *> accounts_data;
 } Status;
 
 class Bank {
 private:
-map<int, Account *> accounts;
-map<int, ATM*> atms; // track active ATMs in bank
+  map<int, Account *> accounts;
+  map<int, ATM *> atms; // track active ATMs in bank
 
-vector<Status> history; // history for rollback
+  vector<Status> history; // history for rollback
 
-ReadWriteLock bank_lock;
+  ReadWriteLock bank_lock;
 
-//vector<Command> vip_queue;
-pthread_mutex_t vip_lock;
+  // vector<Command> vip_queue;
+  pthread_mutex_t vip_lock;
+  vector<bool> atm_connected;
 
 public:
-  Bank();
+  Bank(int num_atms);
   ~Bank();
 
+  // Bank locking helpers
+  void lock_bank_read() { bank_lock.readLock(); }
+  void unlock_bank_read() { bank_lock.readUnlock(); }
+
   // Account management
-  void add_account(Account *new_account);
-  void remove_account(int account_id);
+  bool add_account(Account *new_account);
+  bool remove_account(int account_id);
   Account *get_account(int account_id);
-  bool account_exists(int account_id);
+
   // ATM management
-  void add_atm(ATM* atm_ptr);
-  void close_atm(int atm_id);
-  ATM* get_atm(int atm_id);
+  void add_atm(ATM *atm_ptr);
+  bool close_atm(int atm_id, int source_atm_id);
+  ATM *get_atm(int atm_id);
   bool atm_exists(int atm_id);
+  bool is_atm_connected(int atm_id);
 
   // Rollback functions
   void make_snapshot();
   void rollback_bank(int iterations);
   void print_status();
-}; 
+};
 
 void *bank_func(
     void *bank_ptr); // must return void* and get void* for pthread_create()

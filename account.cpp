@@ -3,7 +3,6 @@
 // For the setters we can use += and for deposit the argument is positive, 
 // for withdraw the argument is negative and the logic still holds.
 
-// Todo: add locks for setters 
 void Account::set_ils_balance(int new_ils) {
   ils_blc += new_ils;
 }

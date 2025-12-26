@@ -19,6 +19,21 @@ bool is_bank_running = true;
 // (Temporary no-op implementations for single-ATM bring-up.)
 void *bank_func(void *arg) {
   Bank *bank = (Bank *)arg;
+  int counter = 0;
+
+  while (is_bank_running) {
+        counter++;
+        
+        bank->make_snapshot();
+        bank->print_status();
+        
+        // if (counter % 3 == 0) {
+        //      //int percentage = (rand() % 5) + 1; 
+        //      // bank->collect_commission(percentage); ... implement this function later
+        // }
+
+        usleep(10000); // Sleep for 10 milliseconds
+    }
 
   bank->print_status();
 

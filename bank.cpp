@@ -115,6 +115,10 @@ void Bank::make_snapshot() {
   }
 
   if ((int)history.size() >= 100) {
+    Status& old_status = history.front();
+    for (auto& pair : old_status.accounts_data) {
+        delete pair.second;  // free allocated memory for AccountData
+    }
     history.erase(history.begin()); // remove oldest entry
   }
   history.push_back(current_status);

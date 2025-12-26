@@ -293,7 +293,7 @@ int ATM::sleep_func(const string &args) { return COMMAND_SUCCESSFULL; }
 // ----- Actual functions -----
 
 int ATM::func_open_account(int acc, string pswd, int ils, int usd) {
-  // Create new account and add to bank
+  
   Account *new_account = new Account(acc, pswd, ils, usd);
   bool success_adding_account = this->get_bank_ptr()->add_account(new_account);
 
@@ -309,7 +309,7 @@ int ATM::func_open_account(int acc, string pswd, int ils, int usd) {
                to_string(acc) + " with password " + pswd +
                " and initial balance " + to_string(ils) + " ILS and " +
                to_string(usd) + " USD";
-  // write msg to log
+  Log::getInstance().write(msg);
   return COMMAND_SUCCESSFULL;
 }
 

@@ -69,7 +69,12 @@ Account *Bank::get_account(int account_id) {
 }
 
 // ATM management functions
-void Bank::add_atm(ATM *atm_ptr) { atms[atm_ptr->get_id()] = atm_ptr; }
+void Bank::add_atm(ATM *atm_ptr) { 
+  bank_lock.writeLock();
+  atms[atm_ptr->get_id() - 1] = atm_ptr;
+  atm_connected[atm_ptr->get_id() - 1] = true; 
+  bank_lock.writeUnlock();
+}
 
 // This function set the atm flag as closed.
 bool Bank::close_atm(int atm_id, int source_atm_id) {
@@ -157,7 +162,9 @@ void Bank::print_status() {
 
   cout << "Current Bank Status" << endl;
 
-  for (auto const &[id, account] : accounts) {
+  // for (auto const &[id, account] : accounts) {
+  for (auto const &pair : accounts) {
+    Account *account = pair.second;
 
     account->lock.readLock();
     cout << "Account " << account->get_id() << ": Password "

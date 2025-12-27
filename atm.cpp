@@ -320,6 +320,7 @@ int ATM::func_deposit(int acc, string password, int amount, string curr) {
 
   // Check if account doesn't exist
   if (account == nullptr) {
+    bank_ptr->unlock_bank_read();
     string msg = "Error " + to_string(this->get_id()) +
                  ": Your transaction failed - account id " + to_string(acc) +
                  " does not exist";

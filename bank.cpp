@@ -5,7 +5,9 @@
 // TODO: initialize bank state, mutexes, etc.
 Bank::Bank(int num_atms) {
   history.reserve(120);                 // preallocate space for history
-  pthread_mutex_init(&vip_lock, NULL);  // todo is needed?
+  pthread_mutex_init(&vip_lock, NULL);
+  pthread_cond_init(&vip_cond, NULL);
+  is_bank_running_vip = true;
   atm_connected.resize(num_atms, true); // all atms open to business at start
 }
 
@@ -16,6 +18,9 @@ Bank::~Bank() {
   }
   accounts.clear();
   atms.clear(); // clear the map
+  
+  pthread_mutex_destroy(&vip_lock);
+  pthread_cond_destroy(&vip_cond);
 }
 
 // Account management functions
@@ -105,16 +110,22 @@ bool Bank::is_atm_connected(int atm_id) {
 
 // Rollback functions
 void Bank::make_snapshot() {
+  bank_lock.readLock();
   Status current_status;
 
   for (auto const &pair : accounts) { // pair refers to <id, Account*>
     Account *acc = pair.second;
+    
+    acc->lock.readLock(); // lock account for reading
+
     AccountData *acc_data = new AccountData(); // allocate memory for copy
 
     acc_data->id = acc->get_id();
     acc_data->password = acc->get_password();
     acc_data->ils_blc = acc->get_ils_balance();
     acc_data->usd_blc = acc->get_usd_balance();
+
+    acc->lock.readUnlock(); // unlock account after reading
 
     current_status.accounts_data[acc->get_id()] = acc_data;
   }
@@ -127,11 +138,15 @@ void Bank::make_snapshot() {
     history.erase(history.begin()); // remove oldest entry
   }
   history.push_back(current_status);
+
+  bank_lock.readUnlock();
 }
 
 void Bank::rollback_bank(int iterations) {
+  bank_lock.writeLock();
   if (iterations > (int)history.size()) {
     // error - not enough history
+    bank_lock.writeUnlock();
     return;
   }
   // get target status - we can assume itetations is valid (> 0 and <= 100)
@@ -152,6 +167,8 @@ void Bank::rollback_bank(int iterations) {
     accounts[acc_data->id] = new_account;
   }
   history.resize(target_index + 1); // remove future history
+  
+  bank_lock.writeUnlock();
 }
 
 void Bank::print_status() {
@@ -165,7 +182,6 @@ void Bank::print_status() {
   // for (auto const &[id, account] : accounts) {
   for (auto const &pair : accounts) {
     Account *account = pair.second;
-
     account->lock.readLock();
     cout << "Account " << account->get_id() << ": Password "
          << account->get_password() << " Balance " << account->get_ils_balance()
@@ -174,4 +190,72 @@ void Bank::print_status() {
   }
 
   bank_lock.readUnlock();
+}
+
+// VIP functions
+void Bank::add_vip_command(Command cmd) {
+  pthread_mutex_lock(&vip_lock);
+
+  bool inserted = false;
+  for (auto it = vip_queue.begin(); it != vip_queue.end(); ++it) {
+    if (cmd.vip_priority > it->vip_priority) { // higer priority inserted before
+      vip_queue.insert(it, cmd);
+      inserted = true;
+      break;
+    }
+  }
+
+  // if queue was empty or command has loweset priority
+  if (!inserted) {
+    vip_queue.push_back(cmd);
+  }
+
+  pthread_cond_signal(&vip_cond); // signal waiting threads for available command
+  pthread_mutex_unlock(&vip_lock);
+}
+
+bool Bank::get_next_vip_command(Command &cmd) {
+  pthread_mutex_lock(&vip_lock);
+
+  while (vip_queue.empty() && is_bank_running_vip) {
+    pthread_cond_wait(&vip_cond, &vip_lock);
+  }
+  
+  // if we wake up because bank stopped and queue is empty
+  if (vip_queue.empty()) {
+    pthread_mutex_unlock(&vip_lock);
+    return false;
+  }
+
+  // get command from queue
+  cmd = vip_queue.front();
+  vip_queue.erase(vip_queue.begin());
+
+  pthread_mutex_unlock(&vip_lock);
+  return true;
+}
+
+void Bank::stop_vip_thread() {
+  pthread_mutex_lock(&vip_lock);
+  is_bank_running_vip = false;
+  pthread_cond_broadcast(&vip_cond);
+  pthread_mutex_unlock(&vip_lock);
+}
+
+ATM* Bank::get_atm(int atm_id) {
+  bank_lock.readLock();
+  auto it = atms.find(atm_id - 1);
+  ATM* atm_ptr = nullptr;
+  if (it != atms.end()) {
+    atm_ptr = it->second;
+  }
+  bank_lock.readUnlock();
+  return atm_ptr;
+}
+
+bool Bank::atm_exists(int atm_id) {
+  bank_lock.readLock();
+  bool exists = (atms.find(atm_id - 1) != atms.end());
+  bank_lock.readUnlock();
+  return exists;
 }

@@ -1,0 +1,23 @@
+1: New account id is 1001 with password 1111 and initial balance 10000 ILS and 5000 USD
+1: Currently on a scheduled break. Service will resume within 100 ms.
+1: Account 1001 new balance is 10500 ILS and 5000 USD after 500 ILS deposited
+1: Account 1001 new balance is 10500 ILS and 4800 USD after 200 USD was withdrawn
+1: Account 1001 balance is 10500 ILS and 4800 USD
+2: Currently on a scheduled break. Service will resume within 200 ms.
+3: Currently on a scheduled break. Service will resume within 500 ms.
+2: New account id is 2001 with password 2222 and initial balance 20000 ILS and 10000 USD
+2: Account 2001 new balance is 20000 ILS and 11000 USD after 1000 USD deposited
+2: Account 2001 new balance is 19500 ILS and 11000 USD after 500 ILS was withdrawn
+2: Account 2001 balance is 19500 ILS and 11000 USD
+3: New account id is 3001 with password 3333 and initial balance 30000 ILS and 15000 USD
+3: Account 3001 balance is 30000 ILS and 15000 USD
+3: Account 3001 new balance is 55000 ILS and 10000 USD after 5000 USD was exchanged
+2: Transfer 2000 USD from account 2001 to account 1001 new account balance is 19500 ILS and 9000 USD new target account balance is 378855 ILS and 6800 USD
+1: Currently on a scheduled break. Service will resume within 100 ms.
+1: Account 1001 new balance is 377855 ILS and 7000 USD after 1000 ILS was exchanged
+1: Transfer 500 ILS from account 1001 to account 2001 new account balance is 377355 ILS and 7000 USD new target account balance is 20000 ILS and 9000 USD
+2: Currently on a scheduled break. Service will resume within 100 ms.
+2: Account 2001 is now closed. Balance was 20000 ILS and 9000 USD
+3: Currently on a scheduled break. Service will resume within 2000 ms.
+Bank: ATM 3 closed 2 successfully
+3: Account 1001 balance is 377355 ILS and 7000 USD

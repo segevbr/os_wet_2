@@ -36,7 +36,7 @@ class ATM{
         int rollback(const string& args);
         int exchange(const string& args);
         int invest(const string& args);
-        int sleep_func(const string& args);
+        int sleep(const string& args);
         
         // actual functions
         int func_open_account(int acc, string pswd, int ils, int usd);
@@ -49,6 +49,7 @@ class ATM{
         int func_rollback(int it);
         int func_exchange(int acc, string pswd, string s_curr, string t_curr, int s_amount);
         int func_invest(int acc, string pswd, int amount, string curr, int time);
+        int sleep_func(int sleep_time_in_ms);
 
         // Helpers
         enum Currencies {

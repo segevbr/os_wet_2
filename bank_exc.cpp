@@ -1,5 +1,6 @@
 #include "atm.h"
 #include "bank.h"
+#include "log.h"
 #include <fstream>
 #include <iostream>
 #include <pthread.h>
@@ -23,7 +24,7 @@ void *bank_func(void *arg) {
 
   while (is_bank_running) {
         counter++;
-        
+        // cout << to_string(counter) << endl;
         bank->make_snapshot();
         bank->print_status();
         
@@ -40,19 +41,32 @@ void *bank_func(void *arg) {
   return nullptr;
 }
 
-void *vip_thread_func(void *object) {
-  (void)object;
+void *vip_thread_func(void *arg) {
+  Bank *bank = (Bank *)arg;
+  Command cmd;
+  
+  // VIP thread loop
+  while (bank->get_next_vip_command(cmd)) {
+      ATM* atm = bank->get_atm(cmd.atm_id);
+      if (atm) {
+          atm->run_command(cmd);
+      }
+  }
   return nullptr;
 }
 
 int main(int argc, char *argv[]) {
+  // Initialize log to preven thread race condition
+  Log::getInstance();
+
   // check amount of arguments
   if (argc < 3) {
     cerr << "Bank error: illegal arguments" << endl;
     return ERROR;
   }
 
-  int num_atms = atoi(argv[1]);
+  int num_atms = argc - 2;
+  int vip_thread_num = stoi(argv[1]);
 
   vector<string> atm_input_files;
 
@@ -76,7 +90,6 @@ int main(int argc, char *argv[]) {
     delete bank_ptr;
     return ERROR;
   }
-
   vector<ATM *> atms;
   vector<pthread_t> atm_threads(num_atms);
   for (int i = 0; i < num_atms; ++i) {
@@ -89,14 +102,22 @@ int main(int argc, char *argv[]) {
   }
 
   // vip threads
-  pthread_t vip_th;
-  if (pthread_create(&vip_th, NULL, vip_thread_func, (void *)bank_ptr) != 0) {
-    cerr << "Bank error: pthread_create failed" << endl;
-    return ERROR;
+  vector<pthread_t> vip_thread(vip_thread_num);
+  for (int i = 0; i < vip_thread_num; ++i) {
+    if (pthread_create(&vip_thread[i], NULL, vip_thread_func, (void *)bank_ptr) != 0) {
+      cerr << "Bank error: pthread_create failed" << endl;
+      return ERROR;
+    }
   }
 
   for (int i = 0; i < num_atms; ++i) {
     pthread_join(atm_threads[i], NULL);
+  }
+
+  // Signal VIP threads to stop
+  bank_ptr->stop_vip_thread();
+  for (int i = 0; i < vip_thread_num; ++i) {
+    pthread_join(vip_thread[i], NULL);
   }
 
   is_bank_running = false;

@@ -21,6 +21,7 @@ typedef struct Command {
     CommandType type;
     int vip_priority;
     string cmd_string;
+    int atm_id; // for vip commands
 } Command;
 
 #endif

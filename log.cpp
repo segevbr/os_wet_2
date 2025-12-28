@@ -19,8 +19,10 @@ Log& Log::getInstance() {
 
 void Log::write(const string& msg) {
     pthread_mutex_lock(&write_lock);
+    // Debugging output to console
     if (log_file.is_open()) {
         log_file << msg << endl;
+        log_file.flush(); // ensure it's written immediately (force write to disk)
     }
     pthread_mutex_unlock(&write_lock);
 }

@@ -2,6 +2,7 @@
 #define BANK_H
 
 #include "account.h"
+#include "command.h"
 #include "reader_writer.h"
 #include <fstream>
 #include <iostream>
@@ -36,8 +37,12 @@ private:
 
   ReadWriteLock bank_lock;
 
-  // vector<Command> vip_queue;
+  // VIP management
+  vector<Command> vip_queue;
   pthread_mutex_t vip_lock;
+  pthread_cond_t vip_cond;
+  bool is_bank_running_vip; 
+
   vector<bool> atm_connected;
 
 public:
@@ -64,9 +69,17 @@ public:
   void make_snapshot();
   void rollback_bank(int iterations);
   void print_status();
+
+  // VIP functions
+  void add_vip_command(Command cmd);
+  bool get_next_vip_command(Command &cmd);
+  void stop_vip_thread();
+  pthread_cond_t* get_vip_cond() { return &vip_cond;}
+  pthread_mutex_t* get_vip_lock() { return &vip_lock; }
 };
 
 void *bank_func(
     void *bank_ptr); // must return void* and get void* for pthread_create()
+
 
 #endif

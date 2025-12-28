@@ -7,9 +7,10 @@
 #include <unistd.h>
 #include <cmath>
 
-extern void write_to_log(const string &msg);
 
-void *run_atm(void *arg) { // todo why void*
+#define RATE 5 // 1 USD = 5 ILS
+
+void *run_atm(void *arg) { 
   ATM *atm = (ATM *)arg;
   if (!atm)
     return NULL;
@@ -23,7 +24,6 @@ void *run_atm(void *arg) { // todo why void*
   string line;
 
   while (atm->is_running) {
-
     if (!atm->bank_ptr->is_atm_connected(atm->get_id())) {
       atm->is_running = false; //atm closed
       break;
@@ -36,12 +36,14 @@ void *run_atm(void *arg) { // todo why void*
       break;
     }
     cmd = atm->parse_command(line);
+    cmd.atm_id = atm->get_id(); // used so the vip thread knows which atm to run the command on
 
     if (cmd.vip_priority > 0) {
-      // todo add vip command in bank list
+      atm->bank_ptr->add_vip_command(cmd);
       continue;
     }
     atm->run_command(cmd);
+    // usleep(1000000); // sleep for 1 second between commands (debugging print_status)
   }
 
   if (atm->input_file.is_open()) {
@@ -151,7 +153,7 @@ bool ATM::run_command(const Command &cmd) {
     status = invest(cmd.cmd_string);
     break;
   case (CMD_SLEEP):
-    status = sleep_func(cmd.cmd_string);
+    status = sleep(cmd.cmd_string);
     break;
   default:
     status = COMMAND_FAILED;
@@ -168,7 +170,6 @@ int ATM::open_account(const string &args) {
   string password;
   int amount_ils;
   int amount_usd;
-
   ss >> account >> password >> amount_ils >> amount_usd;
 
   return func_open_account(account, password, amount_ils, amount_usd);
@@ -265,9 +266,10 @@ int ATM::exchange(const string &args) {
   string password;
   string source_currency;
   string target_currency;
+  string to_word;
   int source_amount;
 
-  ss >> account >> password >> source_currency >> target_currency >>
+  ss >> account >> password >> source_currency >> to_word >> target_currency >>
       source_amount;
 
   return func_exchange(account, password, source_currency, target_currency,
@@ -288,7 +290,13 @@ int ATM::invest(const string &args) {
   return func_invest(account, password, amount, currency, time);
 }
 
-int ATM::sleep_func(const string &args) { return COMMAND_SUCCESSFULL; }
+int ATM::sleep(const string &args) { 
+  stringstream ss(args);
+  int sleep_time_in_ms;
+  ss >> sleep_time_in_ms;
+
+  return sleep_func(sleep_time_in_ms);
+}
 
 // ----- Actual functions -----
 
@@ -298,7 +306,7 @@ int ATM::func_open_account(int acc, string pswd, int ils, int usd) {
   bool success_adding_account = this->get_bank_ptr()->add_account(new_account);
 
   if (!success_adding_account) {
-    string msg = "Error " + to_string(new_account->get_id()) +
+    string msg = "Error " + to_string(this->get_id()) +
                  ": Your transaction failed - account with the same id exists";
     Log::getInstance().write(msg);
     delete new_account; // free allocated memory
@@ -320,6 +328,7 @@ int ATM::func_deposit(int acc, string password, int amount, string curr) {
 
   // Check if account doesn't exist
   if (account == nullptr) {
+    bank_ptr->unlock_bank_read();
     string msg = "Error " + to_string(this->get_id()) +
                  ": Your transaction failed - account id " + to_string(acc) +
                  " does not exist";
@@ -356,7 +365,6 @@ int ATM::func_deposit(int acc, string password, int amount, string curr) {
                to_string(account_usd) + " USD after " + to_string(amount) +
                " " + curr + " deposited";
   Log::getInstance().write(msg);
-
   return COMMAND_SUCCESSFULL;
 }
 
@@ -632,8 +640,7 @@ int ATM::func_rollback(int it) {
 }
 
 int ATM::func_exchange(int acc, string pswd, string s_curr,
-                       string t_curr, // todo continue
-                       int s_amount) {
+                       string t_curr, int s_amount) {
 
   bank_ptr->lock_bank_read();
 
@@ -660,11 +667,46 @@ int ATM::func_exchange(int acc, string pswd, string s_curr,
   }
 
   account->lock.writeLock();
-  // Account* account = atm->bank_ptr->get_account(acc);
-  // check if enough balance after conversion
-  // int rate = 5; // 1 USD = 5 ILS
 
-  // Todo : finish implementation
+  // Account* account = atm->bank_ptr->get_account(acc);
+  // check if account have enough balance in source currency before exchange
+  if ((s_curr == "ILS" && account->get_ils_balance() < s_amount) ||
+      (s_curr == "USD" && account->get_usd_balance() < s_amount)) {
+
+    account->lock.writeUnlock();
+    bank_ptr->unlock_bank_read();
+
+    string msg = "Error " + to_string(this->get_id()) +
+                 ": Your transaction failed - account id " + to_string(acc) +
+                 " balance is " + to_string(account->get_ils_balance()) +
+                 " ILS and " + to_string(account->get_usd_balance()) + 
+                 " USD is lower than " + to_string(s_amount) + " " + s_curr;
+    Log::getInstance().write(msg);
+    return COMMAND_FAILED;
+  }
+
+  // perform exchange 
+  if (s_curr == "ILS" && t_curr == "USD") {
+    account->set_ils_balance(-s_amount);
+    int t_amount = s_amount / RATE; // integer division
+    account->set_usd_balance(t_amount);
+  } else if (s_curr == "USD" && t_curr == "ILS") {
+    account->set_usd_balance(-s_amount);
+    int t_amount = s_amount * RATE;
+    account->set_ils_balance(t_amount);
+  }
+  int src_ils = account->get_ils_balance();
+  int src_usd =  account->get_usd_balance();
+
+  account->lock.writeUnlock();
+  bank_ptr->unlock_bank_read();
+  
+  string msg = to_string(this->get_id()) + ": Account " + to_string(acc) +
+               " new balance is " + to_string(src_ils) + " ILS and " +
+               to_string(src_usd) + " USD after " + to_string(s_amount) +
+               " " + s_curr + " was exchanged";
+  Log::getInstance().write(msg);
+  
   return COMMAND_SUCCESSFULL; // for checks
 }
 int ATM::func_invest(int acc, string pswd, int amount, string curr, int time) {
@@ -724,6 +766,16 @@ int ATM::func_invest(int acc, string pswd, int amount, string curr, int time) {
   }
   account->lock.writeUnlock();
 
+  return COMMAND_SUCCESSFULL;
+}
+
+int ATM::sleep_func(int sleep_time_in_ms) {
+  usleep(sleep_time_in_ms * 1000);
+  string msg = to_string(this->get_id()) + 
+                ": Currently on a scheduled break. Service will resume within " +
+                to_string(sleep_time_in_ms) + " ms.";
+
+  Log::getInstance().write(msg);
   return COMMAND_SUCCESSFULL;
 }
 

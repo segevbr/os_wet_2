@@ -363,7 +363,7 @@ int ATM::func_deposit(int acc, string password, int amount, string curr) {
   string msg = to_string(this->get_id()) + ": Account " + to_string(acc) +
                " new balance is " + to_string(account_ils) + " ILS and " +
                to_string(account_usd) + " USD after " + to_string(amount) +
-               " " + curr + " deposited";
+               " " + curr + " was deposited";
   Log::getInstance().write(msg);
   return COMMAND_SUCCESSFULL;
 }
@@ -752,9 +752,12 @@ int ATM::func_invest(int acc, string pswd, int amount, string curr, int time) {
     account->set_usd_balance(-amount);
   }
 
+  account->lock.writeUnlock(); // unlock to allow other operations during sleep
   bank_ptr->unlock_bank_read();
 
   usleep(time * 1000);
+
+  account->lock.writeLock(); // lock again to update balance after investment
 
   double factor = pow(1.03, (double)time / 10.0); // 3% every 10 ms
   int final_amount = (int)(amount * factor); // rounded down

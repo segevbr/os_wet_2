@@ -37,7 +37,7 @@ void *bank_func(void *arg) {
     usleep(10000); // Sleep for 10ms
   }
 
-  bank->print_status();
+  // bank->print_status(); 
 
   return nullptr;
 }

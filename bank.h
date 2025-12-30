@@ -33,6 +33,9 @@ private:
   map<int, Account *> accounts;
   map<int, ATM *> atms; // track active ATMs in bank
 
+  int bank_ils_blc;
+  int bank_usd_blc;
+
   vector<Status> history; // history for rollback
 
   ReadWriteLock bank_lock;
@@ -52,6 +55,8 @@ public:
   // Bank locking helpers
   void lock_bank_read() { bank_lock.readLock(); }
   void unlock_bank_read() { bank_lock.readUnlock(); }
+
+  void collect_commission(int percentage);
 
   // Account management
   bool add_account(Account *new_account);

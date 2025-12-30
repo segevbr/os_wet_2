@@ -3,7 +3,7 @@
 #include "log.h"
 
 // TODO: initialize bank state, mutexes, etc.
-Bank::Bank(int num_atms) {
+Bank::Bank(int num_atms) : bank_ils_blc(0), bank_usd_blc(0) {
   history.reserve(120);                 // preallocate space for history
   pthread_mutex_init(&vip_lock, NULL);
   pthread_cond_init(&vip_cond, NULL);
@@ -183,11 +183,54 @@ void Bank::print_status() {
   for (auto const &pair : accounts) {
     Account *account = pair.second;
     account->lock.readLock();
-    cout << "Account " << account->get_id() << ": Password "
-         << account->get_password() << " Balance " << account->get_ils_balance()
-         << " [ILS] " << account->get_usd_balance() << " [USD]" << endl;
+    cout << "Account " << account->get_id() << ": Balance - "
+         << account->get_ils_balance() << " ILS " << account->get_usd_balance() <<
+        " USD, Account Password - " << account->get_password() << endl;
     account->lock.readUnlock();
   }
+
+  bank_lock.readUnlock();
+}
+
+void Bank::collect_commission(int percentage) {
+  bank_lock.readLock();
+
+  int total_ils_collected = 0;
+  int total_usd_collected = 0;
+
+  for (auto const &pair : accounts) {
+    Account *account = pair.second;
+
+    account->lock.writeLock();
+
+    // Get balances
+    int ils_blc = account->get_ils_balance();
+    int usd_blc = account->get_usd_balance();
+
+    // Calculate commission
+    int ils_commission = (int)((ils_blc * percentage) / 100);
+    int usd_commission = (int)((usd_blc * percentage) / 100);
+
+    // Take commision from account
+    account->set_ils_balance(-ils_commission);
+    account->set_usd_balance(-usd_commission);
+
+    // Add it to total collected
+    total_ils_collected += ils_commission;
+    total_usd_collected += usd_commission;
+
+    account->lock.writeUnlock();
+    
+    // Log commission taken from account
+    string msg = "Bank: commissions of " + to_string(percentage) + "% were charged, "
+                 + "bank gained " + to_string(ils_commission) + " ILS and " +
+                to_string(usd_commission) + " USD from account";
+    Log::getInstance().write(msg);
+  }
+
+  // Update bank balance
+  bank_ils_blc += total_ils_collected;
+  bank_usd_blc += total_usd_collected;
 
   bank_lock.readUnlock();
 }

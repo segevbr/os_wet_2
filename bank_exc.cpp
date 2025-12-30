@@ -23,18 +23,19 @@ void *bank_func(void *arg) {
   int counter = 0;
 
   while (is_bank_running) {
-        counter++;
-        // cout << to_string(counter) << endl;
-        bank->make_snapshot();
-        bank->print_status();
-        
-        // if (counter % 3 == 0) {
-        //      //int percentage = (rand() % 5) + 1; 
-        //      // bank->collect_commission(percentage); ... implement this function later
-        // }
-
-        usleep(10000); // Sleep for 10 milliseconds
+    counter++;
+    
+    bank->make_snapshot();
+    bank->print_status();
+    
+    // Take commissions every 3 iterations since 3*10ms = 30ms
+    if (counter % 3 == 0) {
+      int percentage = (rand() % 5) + 1; // random percentage between 1 and 5
+      bank->collect_commission(percentage);
     }
+
+    usleep(10000); // Sleep for 10ms
+  }
 
   bank->print_status();
 
@@ -58,6 +59,8 @@ void *vip_thread_func(void *arg) {
 int main(int argc, char *argv[]) {
   // Initialize log to preven thread race condition
   Log::getInstance();
+
+  srand(time(NULL)); // seed random generator 
 
   // check amount of arguments
   if (argc < 3) {

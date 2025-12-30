@@ -1,0 +1,666 @@
+#!/usr/bin/env python3
+"""
+Comprehensive test runner for the concurrent bank system.
+Course: 046209 - Operating Systems Structure
+Compatible with older Python 3 versions (3.4+)
+"""
+
+import subprocess
+import os
+import sys
+import time
+import re
+import argparse
+
+# Configuration
+BANK_EXECUTABLE = "./bank"
+LOG_FILE = "log.txt"
+TIMEOUT = 60  # seconds
+
+class TestResult:
+    def __init__(self, name):
+        self.name = name
+        self.passed = False
+        self.error_message = ""
+        self.log_content = ""
+        self.stdout = ""
+        self.stderr = ""
+
+def run_bank(num_vip_threads, input_files, timeout=TIMEOUT):
+    """Run the bank executable with given parameters."""
+    cmd = [BANK_EXECUTABLE, str(num_vip_threads)] + input_files
+    try:
+        # Use simple subprocess call for compatibility
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=os.path.dirname(os.path.abspath(__file__)) or "."
+        )
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+            # Decode bytes to string if needed
+            if isinstance(stdout, bytes): stdout = stdout.decode('utf-8', errors='ignore')
+            if isinstance(stderr, bytes): stderr = stderr.decode('utf-8', errors='ignore')
+            return process.returncode, stdout, stderr
+        except subprocess.TimeoutExpired:
+            process.kill()
+            return -1, "", "TIMEOUT"
+            
+    except Exception as e:
+        return -1, "", str(e)
+
+def read_log_file():
+    """Read the log file content."""
+    try:
+        with open(LOG_FILE, 'r') as f:
+            return f.read()
+    except IOError: # FileNotFoundError is IOError in old python
+        return ""
+
+def clean_log_file():
+    """Remove the log file if it exists."""
+    try:
+        if os.path.exists(LOG_FILE):
+            os.remove(LOG_FILE)
+    except OSError:
+        pass
+
+def check_log_contains(log, expected):
+    """Check if log contains all expected strings."""
+    missing = []
+    for exp in expected:
+        if exp not in log:
+            missing.append(exp)
+    if missing:
+        return False, "Missing in log: " + str(missing)
+    return True, ""
+
+def check_log_contains_pattern(log, patterns):
+    """Check if log contains all expected regex patterns."""
+    missing = []
+    for pattern in patterns:
+        if not re.search(pattern, log):
+            missing.append(pattern)
+    if missing:
+        return False, "Missing patterns in log: " + str(missing)
+    return True, ""
+
+def check_no_negative_balance(log):
+    """Check that no negative balances appear in log."""
+    # Pattern to find balance reports
+    balance_pattern = r'balance is (-?\d+) ILS and (-?\d+) USD'
+    matches = re.findall(balance_pattern, log)
+    for ils, usd in matches:
+        if int(ils) < 0 or int(usd) < 0:
+            return False, "Negative balance found: {} ILS, {} USD".format(ils, usd)
+    return True, ""
+
+# ============== TEST CASES ==============
+
+def test_basic_operations():
+    """Test basic account operations: open, deposit, withdraw, balance."""
+    result = TestResult("Basic Operations")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_basic.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    if retcode != 0 and "TIMEOUT" not in stderr:
+        result.error_message = "Bank exited with code {}: {}".format(retcode, stderr)
+        return result
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"1: New account id is 1001 with password 1234",
+        r"1: New account id is 1002 with password 5678",
+        r"1: Account 1001 balance is \d+ ILS and \d+ USD",
+        r"1: Account 1002 balance is \d+ ILS and \d+ USD",
+        r"1: Account 1001 new balance is \d+ ILS and \d+ USD after 500 ILS was deposited",
+        r"1: Account 1002 new balance is \d+ ILS and \d+ USD after 200 USD was deposited",
+        r"1: Account 1001 new balance is \d+ ILS and \d+ USD after 300 ILS was withdrawn",
+        r"1: Account 1002 new balance is \d+ ILS and \d+ USD after 100 USD was withdrawn",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    ok, msg = check_no_negative_balance(log)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_error_handling():
+    """Test error handling: wrong password, non-existent account."""
+    result = TestResult("Error Handling")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_errors.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"1: New account id is 2001",
+        r"Error 1:.*password for account id 2001 is incorrect",
+        r"Error 1:.*password for account id 2001 is incorrect",
+        r"Error 1:.*password for account id 2001 is incorrect",
+        r"Error 1:.*account id 9999 does not exist",
+        r"Error 1:.*account id 9999 does not exist",
+        r"Error 1:.*account id 9999 does not exist",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_transfers():
+    """Test money transfers between accounts."""
+    result = TestResult("Transfers")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_transfer.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"1: New account id is 3001",
+        r"1: New account id is 3002",
+        r"1: Transfer 200 ILS from account 3001 to account 3002",
+        r"1: Transfer 100 USD from account 3002 to account 3001",
+        r"Error 1:.*account id 3001.*balance.*is lower than 5000 ILS",
+        r"Error 1:.*password for account id 3001 is incorrect",
+        r"Error 1:.*account id 9999 does not exist",
+        r"Error 1:.*account id 9999 does not exist",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_currency_exchange():
+    """Test currency exchange operations."""
+    result = TestResult("Currency Exchange")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_exchange.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"1: New account id is 4001",
+        r"1: Account 4001 new balance is \d+ ILS and \d+ USD after 500 ILS was exchanged",
+        r"1: Account 4001 new balance is \d+ ILS and \d+ USD after 150 USD was exchanged",
+        r"Error 1:.*balance.*is lower than 10000 ILS",
+        r"Error 1:.*password for account id 4001 is incorrect",
+        r"Error 1:.*account id 9999 does not exist",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_close_account():
+    """Test closing accounts."""
+    result = TestResult("Close Account")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_close_account.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"1: New account id is 5001 with password 1234",
+        r"1: Account 5001 is now closed\. Balance was \d+ ILS and \d+ USD",
+        r"1: New account id is 5001 with password 5678",
+        r"1: Account 5001 balance is \d+ ILS and \d+ USD",
+        r"Error 1:.*password for account id 5001 is incorrect",
+        r"Error 1:.*account id 9999 does not exist",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_insufficient_funds():
+    """Test insufficient funds errors."""
+    result = TestResult("Insufficient Funds")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_insufficient.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"1: New account id is 6001",
+        r"Error 1:.*account id 6001 balance is \d+ ILS and \d+ USD is lower than 10000 ILS",
+        r"1: Account 6001 new balance is \d+ ILS and \d+ USD after 100 ILS was deposited",
+        r"Error 1:.*account id 6001 balance is \d+ ILS and \d+ USD is lower than 2000 USD",
+        r"1: Account 6001 new balance is \d+ ILS and \d+ USD after 50 USD was deposited",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    ok, msg = check_no_negative_balance(log)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_concurrent_atms():
+    """Test concurrent ATM operations."""
+    result = TestResult("Concurrent ATMs")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_concurrent1.txt", "tests/test_concurrent2.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"1: New account id is 7001",
+        r"1: New account id is 7002",
+        r"2: New account id is 7003",
+        r"2: New account id is 7004",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    ok, msg = check_no_negative_balance(log)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_multi_atm_transfers():
+    """Test transfers between accounts created by different ATMs."""
+    result = TestResult("Multi-ATM Transfers")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_atm1.txt", "tests/test_atm2.txt", "tests/test_atm3.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"\d: New account id is 8001",
+        r"\d: New account id is 8002",
+        r"\d: New account id is 8003",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    ok, msg = check_no_negative_balance(log)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_persistent_commands():
+    """Test persistent command modifier."""
+    result = TestResult("Persistent Commands")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_persistent.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"1: New account id is 9001",
+        r"1: Account 9001 new balance is \d+ ILS and \d+ USD after 100 ILS was deposited",
+        r"1: Account 9001 new balance is \d+ ILS and \d+ USD after 50 ILS was withdrawn",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_vip_commands():
+    """Test VIP command handling."""
+    result = TestResult("VIP Commands")
+    clean_log_file()
+    
+    # Use 2 VIP threads
+    retcode, stdout, stderr = run_bank(2, ["tests/test_vip.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"1: New account id is 10001",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_investment():
+    """Test investment operations."""
+    result = TestResult("Investment")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_invest.txt"], timeout=30)
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"1: New account id is 11001",
+        r"1: Account 11001 new balance is 9000 ILS and 5000 USD after 1000 ILS was invested for 6 sec",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_commission_charging():
+    """Test that commissions are charged."""
+    result = TestResult("Commission Charging")
+    clean_log_file()
+    
+    # Use a longer-running test to see commissions
+    retcode, stdout, stderr = run_bank(0, ["tests/test_basic.txt"], timeout=30)
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    expected_patterns = [
+        r"Bank: commissions of \d+ % were charged",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_illegal_arguments():
+    """Test error handling for illegal arguments."""
+    result = TestResult("Illegal Arguments")
+    
+    # Test with no arguments
+    retcode, stdout, stderr = run_bank(0, [], timeout=5)
+    # This will fail to run properly, that's expected
+    
+    # Test with non-existent file
+    retcode, stdout, stderr = run_bank(0, ["nonexistent_file.txt"], timeout=5)
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    if "Bank error: illegal arguments" in stderr or retcode != 0:
+        result.passed = True
+    else:
+        result.error_message = "Expected 'illegal arguments' error"
+    
+    return result
+
+def test_status_printing():
+    """Test that bank status is printed to stdout."""
+    result = TestResult("Status Printing")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_basic.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    # Check stdout contains bank status
+    if "Current Bank Status" in stdout or "Account" in stdout:
+        result.passed = True
+    else:
+        result.error_message = "Bank status not found in stdout"
+    
+    return result
+
+def test_close_atm():
+    """Test closing ATM functionality."""
+    result = TestResult("Close ATM")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, ["tests/test_close_atm1.txt", "tests/test_close_atm2.txt"])
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    # ATM 2 should request to close ATM 1
+    expected_patterns = [
+        r"1: New account id is 13001",
+        r"Bank: ATM 2 closed 1 successfully",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def test_stress_multi_atm():
+    """Stress test with 4 ATMs doing concurrent operations."""
+    result = TestResult("Stress Multi-ATM")
+    clean_log_file()
+    
+    retcode, stdout, stderr = run_bank(0, [
+        "tests/stress1.txt", 
+        "tests/stress2.txt", 
+        "tests/stress3.txt", 
+        "tests/stress4.txt"
+    ], timeout=120)
+    result.stdout = stdout
+    result.stderr = stderr
+    
+    if "TIMEOUT" in stderr:
+        result.error_message = "Test timed out"
+        return result
+    
+    log = read_log_file()
+    result.log_content = log
+    
+    # All 4 accounts should be created
+    expected_patterns = [
+        r"\d: New account id is 20001",
+        r"\d: New account id is 20002",
+        r"\d: New account id is 20003",
+        r"\d: New account id is 20004",
+    ]
+    
+    ok, msg = check_log_contains_pattern(log, expected_patterns)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    ok, msg = check_no_negative_balance(log)
+    if not ok:
+        result.error_message = msg
+        return result
+    
+    result.passed = True
+    return result
+
+def run_all_tests():
+    """Run all tests and return results."""
+    tests = [
+        test_basic_operations,
+        test_error_handling,
+        test_transfers,
+        test_currency_exchange,
+        test_close_account,
+        test_insufficient_funds,
+        test_concurrent_atms,
+        test_multi_atm_transfers,
+        test_persistent_commands,
+        test_vip_commands,
+        test_investment,
+        test_commission_charging,
+        test_illegal_arguments,
+        test_status_printing,
+        test_close_atm,
+        test_stress_multi_atm,
+    ]
+    
+    results = []
+    for test_func in tests:
+        sys.stdout.write("Running: {}... ".format(test_func.__name__))
+        sys.stdout.flush()
+        try:
+            result = test_func()
+            results.append(result)
+            if result.passed:
+                print("PASSED")
+            else:
+                print("FAILED: {}".format(result.error_message))
+        except Exception as e:
+            result = TestResult(test_func.__name__)
+            result.error_message = str(e)
+            results.append(result)
+            print("ERROR: {}".format(e))
+    
+    return results
+
+def print_summary(results):
+    """Print test summary."""
+    passed = sum(1 for r in results if r.passed)
+    total = len(results)
+    
+    print("\n" + "=" * 60)
+    print("TEST SUMMARY: {}/{} tests passed".format(passed, total))
+    print("=" * 60)
+    
+    if passed < total:
+        print("\nFailed tests:")
+        for r in results:
+            if not r.passed:
+                print("  - {}: {}".format(r.name, r.error_message))
+                if r.log_content:
+                    print("    Log preview: {}...".format(r.log_content[:200]))
+
+def main():
+    # 1. Setup Argument Parser
+    parser = argparse.ArgumentParser(description="Run bank system tests.")
+    parser.add_argument(
+        "-e", "--exe", 
+        default="../bank",  # Default to parent directory
+        help="Path to the bank executable (default: ../bank)"
+    )
+    args = parser.parse_args()
+
+    # 2. Update Global Configuration
+    global BANK_EXECUTABLE
+    BANK_EXECUTABLE = args.exe
+
+    # 3. Verify Executable Exists
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    if not os.path.isabs(BANK_EXECUTABLE):
+        abs_exe_path = os.path.normpath(os.path.join(script_dir, BANK_EXECUTABLE))
+    else:
+        abs_exe_path = BANK_EXECUTABLE
+
+    if not os.path.exists(abs_exe_path):
+        print("Error: Bank executable not found at: {}".format(abs_exe_path))
+        print("Usage: python3 run_tests.py --exe <path_to_bank>")
+        sys.exit(1)
+    
+    # 4. Verify Tests Directory Exists
+    tests_dir = os.path.join(script_dir, "tests")
+    if not os.path.exists(tests_dir):
+        print("Error: 'tests' directory not found at: {}".format(tests_dir))
+        sys.exit(1)
+    
+    print("=" * 60)
+    print("Concurrent Bank System - Test Suite")
+    print("Executable: {}".format(abs_exe_path))
+    print("=" * 60)
+    print("")
+    
+    results = run_all_tests()
+    print_summary(results)
+    
+    # Exit with non-zero if any test failed
+    if any(not r.passed for r in results):
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

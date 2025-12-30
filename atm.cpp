@@ -770,12 +770,13 @@ int ATM::func_invest(int acc, string pswd, int amount, string curr, int time) {
 }
 
 int ATM::sleep_func(int sleep_time_in_ms) {
-  usleep(sleep_time_in_ms * 1000);
   string msg = to_string(this->get_id()) + 
                 ": Currently on a scheduled break. Service will resume within " +
                 to_string(sleep_time_in_ms) + " ms.";
-
   Log::getInstance().write(msg);
+
+  usleep(sleep_time_in_ms * 1000);
+
   return COMMAND_SUCCESSFULL;
 }
 

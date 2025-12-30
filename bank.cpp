@@ -224,7 +224,8 @@ void Bank::collect_commission(int percentage) {
     // Log commission taken from account
     string msg = "Bank: commissions of " + to_string(percentage) + "% were charged, "
                  + "bank gained " + to_string(ils_commission) + " ILS and " +
-                to_string(usd_commission) + " USD from account";
+                to_string(usd_commission) + " USD from account" + 
+                to_string(account->get_id());
     Log::getInstance().write(msg);
   }
 

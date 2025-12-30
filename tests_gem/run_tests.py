@@ -5,6 +5,7 @@ Course: 046209 - Operating Systems Structure
 """
 
 import subprocess
+import argparse
 import os
 import sys
 import time
@@ -609,25 +610,49 @@ def print_summary(results: List[TestResult]):
                     print(f"    Log preview: {r.log_content[:200]}...")
 
 def main():
-    # Check if bank executable exists
-    if not os.path.exists(BANK_EXECUTABLE):
-        print(f"Error: {BANK_EXECUTABLE} not found. Run 'make' first.")
+    # 1. Setup Argument Parser
+    parser = argparse.ArgumentParser(description="Run bank system tests.")
+    parser.add_argument(
+        "-e", "--exe", 
+        default="../bank",  # Default to parent directory based on your structure
+        help="Path to the bank executable (default: ../bank)"
+    )
+    args = parser.parse_args()
+
+    # 2. Update Global Configuration
+    global BANK_EXECUTABLE
+    BANK_EXECUTABLE = args.exe
+
+    # 3. Verify Executable Exists
+    # We resolve the path relative to the script's location to be safe
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Check if path is absolute, if not, join with script dir for checking
+    if not os.path.isabs(BANK_EXECUTABLE):
+        abs_exe_path = os.path.normpath(os.path.join(script_dir, BANK_EXECUTABLE))
+    else:
+        abs_exe_path = BANK_EXECUTABLE
+
+    if not os.path.exists(abs_exe_path):
+        print(f"Error: Bank executable not found at: {abs_exe_path}")
+        print(f"Usage: python3 run_tests.py --exe <path_to_bank>")
         sys.exit(1)
     
-    # Check if tests directory exists
-    if not os.path.exists("tests"):
-        print("Error: tests directory not found.")
+    # 4. Verify Tests Directory Exists
+    tests_dir = os.path.join(script_dir, "tests")
+    if not os.path.exists(tests_dir):
+        print(f"Error: 'tests' directory not found at: {tests_dir}")
         sys.exit(1)
     
     print("=" * 60)
-    print("Concurrent Bank System - Test Suite")
+    print(f"Concurrent Bank System - Test Suite")
+    print(f"Executable: {abs_exe_path}")
     print("=" * 60)
     print()
     
     results = run_all_tests()
     print_summary(results)
     
-    # Exit with non-zero if any test failed
     if any(not r.passed for r in results):
         sys.exit(1)
 

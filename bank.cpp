@@ -222,7 +222,7 @@ void Bank::collect_commission(int percentage) {
     account->lock.writeUnlock();
     
     // Log commission taken from account
-    string msg = "Bank: commissions of " + to_string(percentage) + "% were charged, "
+    string msg = "Bank: commissions of " + to_string(percentage) + " % were charged, "
                  + "bank gained " + to_string(ils_commission) + " ILS and " +
                 to_string(usd_commission) + " USD from account";
     Log::getInstance().write(msg);

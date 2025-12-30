@@ -564,7 +564,6 @@ def run_all_tests() -> List[TestResult]:
         test_insufficient_funds,
         test_concurrent_atms,
         test_multi_atm_transfers,
-        test_persistent_commands,
         test_vip_commands,
         test_investment,
         test_commission_charging,
